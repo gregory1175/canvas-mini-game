@@ -1,2 +1,2 @@
-import "./constants";
-import "./game";
+import "./constants.js";
+import "./game.js";
