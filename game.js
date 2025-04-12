@@ -21,6 +21,7 @@ let brickOffsetTop = 30;
 let brickOffsetLeft = 30;
 let ballColor = "0095DD";
 let hasCollided = false;
+let score = 0;
 
 const maxSpeed = 1.5;
 document.addEventListener("keydown", keyDownHandler, false);
@@ -40,6 +41,11 @@ function collisionDetection() {
           dy = -dy;
           b.status = 0;
           hasCollided = true;
+          score++;
+          if (score == brickRowCount * brickColumnCount) {
+            alert(`YOU WIN, CONGRATULATIONS! ${score}`);
+            document.location.reload();
+          }
           return true;
         }
       }
@@ -82,6 +88,12 @@ for (let c = 0; c < brickColumnCount; c++) {
   }
 }
 
+function drawScore() {
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#0095DD";
+  ctx.fillText("Score: " + score, 8, 20);
+}
+
 function drawBricks() {
   for (let c = 0; c < brickColumnCount; c++) {
     for (let r = 0; r < brickRowCount; r++) {
@@ -122,6 +134,7 @@ function draw() {
   drawBall();
   drawPaddle();
   collisionDetection();
+  drawScore();
   if (hasCollided === true) {
     ballColor = "red";
   }
