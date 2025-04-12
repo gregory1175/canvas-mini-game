@@ -1,167 +1,292 @@
-const canvas = document.getElementById("myCanvas");
-const ctx = canvas.getContext("2d");
+import { GAME_CONSTANTS, GAME_STATE } from "./constants.js";
 
-let x = canvas.width / 2;
-let y = canvas.height - 30;
-let dx = 2;
-let dy = -2;
-let ballRadius = 10;
-let paddleHeight = 10;
-let paddleWidth = 75;
-let paddleX = (canvas.width - paddleWidth) / 2;
-let rightPressed = false;
-let leftPressed = false;
-let speedMultiplier = 1;
-let brickRowCount = 3;
-let brickColumnCount = 5;
-let brickWidth = 75;
-let brickHeight = 20;
-let brickPadding = 10;
-let brickOffsetTop = 30;
-let brickOffsetLeft = 30;
-let ballColor = "0095DD";
-let hasCollided = false;
-let score = 0;
+// Инициализация игры
+function initGame() {
+  GAME_CONSTANTS.ctx = GAME_CONSTANTS.canvas.getContext("2d");
 
-const maxSpeed = 1.5;
-document.addEventListener("keydown", keyDownHandler, false);
-document.addEventListener("keyup", keyUpHandler, false);
+  // Инициализация кирпичей
+  for (let c = 0; c < GAME_CONSTANTS.brickColumnCount; c++) {
+    GAME_STATE.bricks[c] = [];
+    for (let r = 0; r < GAME_CONSTANTS.brickRowCount; r++) {
+      GAME_STATE.bricks[c][r] = { x: 0, y: 0, status: 1 };
+    }
+  }
 
-function collisionDetection() {
-  for (let c = 0; c < brickColumnCount; c++) {
-    for (let r = 0; r < brickRowCount; r++) {
-      let b = bricks[c][r];
-      if (b.status == 1) {
-        if (
-          x > b.x &&
-          x < b.x + brickWidth &&
-          y > b.y &&
-          y < b.y + brickHeight
-        ) {
-          dy = -dy;
-          b.status = 0;
-          hasCollided = true;
-          score++;
-          if (score == brickRowCount * brickColumnCount) {
-            alert(`YOU WIN, CONGRATULATIONS! ${score}`);
-            document.location.reload();
-          }
-          return true;
+  document.addEventListener("keydown", keyDownHandler, false);
+  document.addEventListener("keyup", keyUpHandler, false);
+  document.addEventListener("mousemove", mouseMoveHandler, false);
+}
+// Отрисовка игровых объектов
+const Renderer = {
+  drawBall() {
+    GAME_CONSTANTS.ctx.beginPath();
+    GAME_CONSTANTS.ctx.arc(
+      GAME_STATE.x,
+      GAME_STATE.y,
+      GAME_CONSTANTS.ballRadius,
+      0,
+      Math.PI * 2
+    );
+    GAME_CONSTANTS.ctx.fillStyle = GAME_STATE.ballColor;
+    GAME_CONSTANTS.ctx.fill();
+    GAME_CONSTANTS.ctx.closePath();
+  },
+
+  drawPaddle() {
+    GAME_CONSTANTS.ctx.beginPath();
+    GAME_CONSTANTS.ctx.rect(
+      GAME_STATE.paddleX,
+      GAME_CONSTANTS.canvas.height - GAME_CONSTANTS.paddleHeight,
+      GAME_CONSTANTS.paddleWidth,
+      GAME_CONSTANTS.paddleHeight
+    );
+    GAME_CONSTANTS.ctx.fillStyle = "#0095DD";
+    GAME_CONSTANTS.ctx.fill();
+    GAME_CONSTANTS.ctx.closePath();
+  },
+
+  drawBricks() {
+    for (let c = 0; c < GAME_CONSTANTS.brickColumnCount; c++) {
+      for (let r = 0; r < GAME_CONSTANTS.brickRowCount; r++) {
+        if (GAME_STATE.bricks[c][r].status == 1) {
+          const brickX =
+            c * (GAME_CONSTANTS.brickWidth + GAME_CONSTANTS.brickPadding) +
+            GAME_CONSTANTS.brickOffsetLeft;
+          const brickY =
+            r * (GAME_CONSTANTS.brickHeight + GAME_CONSTANTS.brickPadding) +
+            GAME_CONSTANTS.brickOffsetTop;
+
+          GAME_STATE.bricks[c][r].x = brickX;
+          GAME_STATE.bricks[c][r].y = brickY;
+
+          GAME_CONSTANTS.ctx.beginPath();
+          GAME_CONSTANTS.ctx.rect(
+            brickX,
+            brickY,
+            GAME_CONSTANTS.brickWidth,
+            GAME_CONSTANTS.brickHeight
+          );
+          GAME_CONSTANTS.ctx.fillStyle = "#0095DD";
+          GAME_CONSTANTS.ctx.fill();
+          GAME_CONSTANTS.ctx.closePath();
         }
       }
     }
+  },
+
+  drawScore() {
+    GAME_CONSTANTS.ctx.font = "16px Arial";
+    GAME_CONSTANTS.ctx.fillStyle = "#0095DD";
+    GAME_CONSTANTS.ctx.fillText("Score: " + GAME_STATE.score, 8, 20);
+  },
+
+  drawLives() {
+    GAME_CONSTANTS.ctx.font = "16px Arial";
+    GAME_CONSTANTS.ctx.fillStyle = "#0095DD";
+    GAME_CONSTANTS.ctx.fillText(
+      "Lives: " + GAME_CONSTANTS.lives,
+      GAME_CONSTANTS.canvas.width - 65,
+      20
+    );
+  },
+
+  clearCanvas() {
+    GAME_CONSTANTS.ctx.clearRect(
+      0,
+      0,
+      GAME_CONSTANTS.canvas.width,
+      GAME_CONSTANTS.canvas.height
+    );
+  },
+};
+
+// Обработка коллизий
+const Collision = {
+  detectBrickCollision() {
+    for (let c = 0; c < GAME_CONSTANTS.brickColumnCount; c++) {
+      for (let r = 0; r < GAME_CONSTANTS.brickRowCount; r++) {
+        const brick = GAME_STATE.bricks[c][r];
+        if (brick.status == 1) {
+          if (
+            GAME_STATE.x > brick.x &&
+            GAME_STATE.x < brick.x + GAME_CONSTANTS.brickWidth &&
+            GAME_STATE.y > brick.y &&
+            GAME_STATE.y < brick.y + GAME_CONSTANTS.brickHeight
+          ) {
+            GAME_STATE.dy = -GAME_STATE.dy;
+            brick.status = 0;
+            GAME_STATE.hasCollided = true;
+            GAME_STATE.score++;
+            GameMechanics.increaseSpeed();
+            if (
+              GAME_STATE.score ==
+              GAME_CONSTANTS.brickRowCount * GAME_CONSTANTS.brickColumnCount
+            ) {
+              GAME_STATE.score += 10;
+              alert("YOU WIN, CONGRATULATIONS!");
+              document.location.reload();
+            }
+            return true;
+          }
+        }
+      }
+    }
+    GAME_STATE.hasCollided = false;
+    return false;
+  },
+
+  detectWallCollision() {
+    if (
+      GAME_STATE.x + GAME_STATE.dx >
+        GAME_CONSTANTS.canvas.width - GAME_CONSTANTS.ballRadius ||
+      GAME_STATE.x + GAME_STATE.dx < GAME_CONSTANTS.ballRadius
+    ) {
+      GAME_STATE.dx = -GAME_STATE.dx;
+    }
+
+    if (GAME_STATE.y + GAME_STATE.dy < GAME_CONSTANTS.ballRadius) {
+      GAME_STATE.dy = -GAME_STATE.dy;
+    } else if (
+      GAME_STATE.y + GAME_STATE.dy >
+      GAME_CONSTANTS.canvas.height - GAME_CONSTANTS.ballRadius
+    ) {
+      if (
+        GAME_STATE.x > GAME_STATE.paddleX - 5 &&
+        GAME_STATE.x < GAME_STATE.paddleX + GAME_CONSTANTS.paddleWidth + 5
+      ) {
+        GAME_STATE.dy = -GAME_STATE.dy;
+        GAME_STATE.ballColor = "#0095DD";
+      } else {
+        GAME_CONSTANTS.lives--;
+        if (GAME_CONSTANTS.lives <= 0) {
+          document.location.reload();
+        } else {
+          GAME_STATE.x = GAME_CONSTANTS.canvas.width / 2;
+          GAME_STATE.y = GAME_CONSTANTS.canvas.height - 30;
+          GAME_STATE.dx = 2;
+          GAME_STATE.dy = -2;
+          GAME_STATE.paddleX =
+            (GAME_CONSTANTS.canvas.width - GAME_CONSTANTS.paddleWidth) / 2;
+        }
+      }
+    }
+  },
+};
+
+// Игровые механики
+const GameMechanics = {
+  increaseSpeed() {
+    if (
+      Math.abs(GAME_STATE.dx) >= GAME_CONSTANTS.maxSpeed ||
+      Math.abs(GAME_STATE.dy) >= GAME_CONSTANTS.maxSpeed
+    ) {
+      GAME_STATE.dx = Math.sign(GAME_STATE.dx) * GAME_CONSTANTS.maxSpeed;
+      GAME_STATE.dy = Math.sign(GAME_STATE.dy) * GAME_CONSTANTS.maxSpeed;
+      return;
+    }
+    GAME_STATE.dx *= 1.2;
+    GAME_STATE.dy *= 1.2;
+  },
+
+  updatePaddlePosition() {
+    if (!GAME_STATE.useKeyboard) return;
+
+    if (
+      GAME_STATE.rightPressed &&
+      GAME_STATE.paddleX <
+        GAME_CONSTANTS.canvas.width - GAME_CONSTANTS.paddleWidth
+    ) {
+      GAME_STATE.paddleX += 7;
+    } else if (GAME_STATE.leftPressed && GAME_STATE.paddleX > 0) {
+      GAME_STATE.paddleX -= 7;
+    }
+  },
+
+  updateBallPosition() {
+    GAME_STATE.x += GAME_STATE.dx;
+    GAME_STATE.y += GAME_STATE.dy;
+  },
+};
+
+function mouseMoveHandler(e) {
+  if (GAME_STATE.useKeyboard) return;
+
+  const relativeX = e.clientX - GAME_CONSTANTS.canvas.offsetLeft;
+  const halfPaddle = GAME_CONSTANTS.paddleWidth / 2;
+
+  if (
+    relativeX > halfPaddle &&
+    relativeX < GAME_CONSTANTS.canvas.width - halfPaddle
+  ) {
+    GAME_STATE.paddleX = relativeX - halfPaddle;
+  } else if (relativeX <= halfPaddle) {
+    GAME_STATE.paddleX = 0;
+  } else {
+    GAME_STATE.paddleX =
+      GAME_CONSTANTS.canvas.width - GAME_CONSTANTS.paddleWidth;
   }
-  hasCollided = false;
-  return false;
+
+  GAME_STATE.lastMouseX = e.clientX;
 }
 
-function speed() {
-  if (dx >= 3 || dy >= -3) {
-    return;
-  }
-  dx *= 1.1;
-  dy *= 1.1;
-  return;
-}
-
+// Обработчики ввода
 function keyDownHandler(e) {
+  GAME_STATE.useKeyboard = true;
+
   if (e.keyCode == 39) {
-    rightPressed = true;
+    GAME_STATE.rightPressed = true;
   } else if (e.keyCode == 37) {
-    leftPressed = true;
+    GAME_STATE.leftPressed = true;
   }
 }
 
 function keyUpHandler(e) {
   if (e.keyCode == 39) {
-    rightPressed = false;
+    GAME_STATE.rightPressed = false;
   } else if (e.keyCode == 37) {
-    leftPressed = false;
-  }
-}
-
-let bricks = [];
-for (let c = 0; c < brickColumnCount; c++) {
-  bricks[c] = [];
-  for (let r = 0; r < brickRowCount; r++) {
-    bricks[c][r] = { x: 0, y: 0, status: 1 };
-  }
-}
-
-function drawScore() {
-  ctx.font = "16px Arial";
-  ctx.fillStyle = "#0095DD";
-  ctx.fillText("Score: " + score, 8, 20);
-}
-
-function drawBricks() {
-  for (let c = 0; c < brickColumnCount; c++) {
-    for (let r = 0; r < brickRowCount; r++) {
-      if (bricks[c][r].status == 1) {
-        let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-        let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-        bricks[c][r].x = brickX;
-        bricks[c][r].y = brickY;
-        ctx.beginPath();
-        ctx.rect(brickX, brickY, brickWidth, brickHeight);
-        ctx.fillStyle = "#0095DD";
-        ctx.fill();
-        ctx.closePath();
-      }
-    }
-  }
-}
-
-function drawBall() {
-  ctx.beginPath();
-  ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-  ctx.fillStyle = ballColor;
-  ctx.fill();
-  ctx.closePath();
-}
-
-function drawPaddle() {
-  ctx.beginPath();
-  ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
-  ctx.fillStyle = "#0095DD";
-  ctx.fill();
-  ctx.closePath();
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawBricks();
-  drawBall();
-  drawPaddle();
-  collisionDetection();
-  drawScore();
-  if (hasCollided === true) {
-    ballColor = "red";
+    GAME_STATE.leftPressed = false;
   }
 
-  if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-    dx = -dx;
+  if (!GAME_STATE.rightPressed && !GAME_STATE.leftPressed) {
+    GAME_STATE.useKeyboard = false;
   }
-  if (y + dy < ballRadius) {
-    dy = -dy;
-  } else if (y + dy > canvas.height - ballRadius) {
-    if (x > paddleX - 5 && x < paddleX + paddleWidth + 5) {
-      dy = -dy;
-      speed();
-      ballColor = "0095DD";
-    } else {
-      document.location.reload();
-    }
+}
+// Главный игровой цикл
+function gameLoop() {
+  Renderer.clearCanvas();
+  Renderer.drawBricks();
+  Renderer.drawBall();
+  Renderer.drawPaddle();
+  Renderer.drawLives();
+  Renderer.drawScore();
+
+  Collision.detectBrickCollision();
+  Collision.detectWallCollision();
+
+  if (GAME_STATE.hasCollided === true) {
+    GAME_STATE.ballColor = "red";
   }
 
-  if (rightPressed && paddleX < canvas.width - paddleWidth) {
-    paddleX += 7;
-  } else if (leftPressed && paddleX > 0) {
-    paddleX -= 7;
+  if (GAME_STATE.isMouseMoving) {
+    setTimeout(() => {
+      GAME_STATE.isMouseMoving = false;
+    }, 100);
   }
 
-  x += dx;
-  y += dy;
+  GameMechanics.updatePaddlePosition();
+  GameMechanics.updateBallPosition();
 }
 
-let interval = setInterval(draw, 10);
+// Запуск игры
+function startGame() {
+  initGame();
+
+  function loop() {
+    gameLoop();
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+startGame();
